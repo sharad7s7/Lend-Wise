@@ -1,12 +1,23 @@
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import Layout from '../components/common/Layout';
 
 export default function LandingPage() {
   const navigate = useNavigate();
-  const { isAuthenticated, canAccessFriendCircle, canAccessMarketplace, canAccessDashboard } = useAuth();
+  const { isAuthenticated } = useAuth();
 
-  const content = (
+  // Redirect authenticated users to home
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/home');
+    }
+  }, [isAuthenticated, navigate]);
+
+  if (isAuthenticated) {
+    return null; // Will redirect
+  }
+
+  return (
     <div className="container mx-auto px-4 py-16">
       {/* Header */}
       <div className="text-center mb-16">
@@ -23,9 +34,8 @@ export default function LandingPage() {
 
       {/* Two Modes Explanation */}
       <div className="max-w-4xl mx-auto mb-12">
-        <div className={`grid gap-8 ${isAuthenticated && !canAccessFriendCircle ? 'md:grid-cols-1' : 'md:grid-cols-2'}`}>
-          {/* Friend Circle Mode - Only show for students or unauthenticated */}
-          {(isAuthenticated ? canAccessFriendCircle : true) && (
+        <div className="grid md:grid-cols-2 gap-8">
+          {/* Friend Circle Mode */}
           <div className="bg-white rounded-xl shadow-lg p-8 border-2 border-primary-200 hover:border-primary-400 transition-all">
             <div className="flex items-center mb-4">
               <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center mr-4">
@@ -62,38 +72,15 @@ export default function LandingPage() {
               onClick={() => {
                 if (!isAuthenticated) {
                   navigate('/login');
-                } else if (canAccessFriendCircle) {
-                  navigate('/friend-circle');
                 } else {
-                  alert('Friend Circle is only available for students. Please sign up as a student to access this feature.');
+                  navigate('/home');
                 }
               }}
               className="w-full bg-primary-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-primary-700 transition-colors"
             >
-              {!isAuthenticated ? 'Sign In to Access' : 'Friend Circle Lending'}
+              {!isAuthenticated ? 'Sign In to Access' : 'Get Started'}
             </button>
           </div>
-          )}
-          
-          {/* Non-student message */}
-          {isAuthenticated && !canAccessFriendCircle && (
-            <div className="bg-gray-50 rounded-xl shadow-lg p-8 border-2 border-gray-200">
-              <div className="flex items-center mb-4">
-                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mr-4">
-                  <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <h2 className="text-2xl font-semibold text-gray-800">Social Lending</h2>
-              </div>
-              <p className="text-gray-600 mb-4">
-                You are not eligible for social lending. Friend Circle lending is exclusively available to verified students.
-              </p>
-              <p className="text-sm text-gray-500">
-                Use AI Marketplace instead to access fair lending opportunities through AI-powered credit assessment.
-              </p>
-            </div>
-          )}
 
           {/* AI Marketplace Mode */}
           <div className="bg-white rounded-xl shadow-lg p-8 border-2 border-purple-200 hover:border-purple-400 transition-all">
@@ -133,12 +120,12 @@ export default function LandingPage() {
                 if (!isAuthenticated) {
                   navigate('/login');
                 } else {
-                  navigate('/marketplace');
+                  navigate('/home');
                 }
               }}
               className="w-full bg-purple-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-purple-700 transition-colors"
             >
-              {!isAuthenticated ? 'Sign In to Access' : 'AI Marketplace Lending'}
+              {!isAuthenticated ? 'Sign In to Access' : 'Get Started'}
             </button>
           </div>
         </div>
@@ -146,14 +133,6 @@ export default function LandingPage() {
 
       {/* Additional CTAs */}
       <div className="text-center space-y-4">
-        {isAuthenticated && canAccessDashboard && (
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="text-primary-600 hover:text-primary-700 font-semibold block mx-auto"
-          >
-            View Lender Dashboard →
-          </button>
-        )}
         {!isAuthenticated && (
           <div className="space-x-4">
             <button
@@ -173,7 +152,5 @@ export default function LandingPage() {
       </div>
     </div>
   );
-
-  return isAuthenticated ? <Layout>{content}</Layout> : content;
 }
 

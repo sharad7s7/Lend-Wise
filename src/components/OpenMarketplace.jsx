@@ -107,15 +107,23 @@ export default function OpenMarketplace() {
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h2 className="text-2xl font-semibold mb-4">Investment Opportunities</h2>
             <p className="text-gray-600 mb-6">
-              As a lender, you can browse and invest in loans through the Lender Dashboard. 
-              All loans are assessed using AI-powered credit analysis to ensure fair risk pricing.
+              As a lender, you can browse and invest in loans through AI-powered credit analysis. 
+              All investments are tracked and monitored for your security.
             </p>
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700"
-            >
-              Go to Lender Dashboard
-            </button>
+            <div className="space-y-3">
+              <button
+                onClick={() => navigate('/marketplace/explore')}
+                className="w-full bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700"
+              >
+                Explore Borrowers
+              </button>
+              <button
+                onClick={() => navigate('/marketplace/investments')}
+                className="w-full bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300"
+              >
+                My Investments
+              </button>
+            </div>
           </div>
         ) : (
           <div className="grid lg:grid-cols-2 gap-8">

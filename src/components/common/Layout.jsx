@@ -27,12 +27,38 @@ export default function Layout({ children, showNotifications = true }) {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-6">
               <button
-                onClick={() => navigate('/')}
+                onClick={() => navigate('/home')}
                 className="text-2xl font-bold text-primary-600 hover:text-primary-700"
               >
                 LendWise
               </button>
               <div className="hidden md:flex items-center gap-4">
+                <button
+                  onClick={() => navigate('/home')}
+                  className="text-gray-700 hover:text-primary-600 font-medium"
+                >
+                  Home
+                </button>
+                <button
+                  onClick={() => navigate('/profile')}
+                  className="text-gray-700 hover:text-primary-600 font-medium"
+                >
+                  Profile
+                </button>
+                {user?.role !== 'Lender' && (
+                  <button
+                    onClick={() => navigate('/borrow')}
+                    className="text-gray-700 hover:text-primary-600 font-medium"
+                  >
+                    Borrow
+                  </button>
+                )}
+                <button
+                  onClick={() => navigate('/lend')}
+                  className="text-gray-700 hover:text-purple-600 font-medium"
+                >
+                  Lend
+                </button>
                 {user?.role === 'Student' && (
                   <button
                     onClick={() => navigate('/friend-circle')}
@@ -43,26 +69,10 @@ export default function Layout({ children, showNotifications = true }) {
                 )}
                 <button
                   onClick={() => navigate('/marketplace')}
-                  className="text-gray-700 hover:text-purple-600 font-medium"
+                  className="text-gray-700 hover:text-purple-600 font-medium text-sm"
                 >
                   AI Marketplace
                 </button>
-                {user?.role === 'Lender' && (
-                  <button
-                    onClick={() => navigate('/dashboard')}
-                    className="text-gray-700 hover:text-primary-600 font-medium"
-                  >
-                    Dashboard
-                  </button>
-                )}
-                {user?.role === 'Admin' && (
-                  <button
-                    onClick={() => navigate('/admin')}
-                    className="text-gray-700 hover:text-gray-900 font-medium"
-                  >
-                    Admin
-                  </button>
-                )}
               </div>
             </div>
             <div className="flex items-center gap-4">
@@ -95,4 +105,3 @@ export default function Layout({ children, showNotifications = true }) {
     </div>
   );
 }
-

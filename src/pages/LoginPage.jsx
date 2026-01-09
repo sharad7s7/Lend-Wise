@@ -24,7 +24,7 @@ export default function LoginPage() {
         message: `Successfully logged in as ${user.name}`,
         type: 'success',
       });
-      navigate('/');
+      navigate('/home');
     } catch (err) {
       setError(err.message || 'Login failed. Please try again.');
     } finally {

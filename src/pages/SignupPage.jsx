@@ -36,7 +36,7 @@ export default function SignupPage() {
         message: `Account created successfully. ${formData.role === 'Student' ? 'You can now access Friend Circle lending.' : 'You can access AI Marketplace lending.'}`,
         type: 'success',
       });
-      navigate('/');
+      navigate('/home');
     } catch (err) {
       setError(err.message || 'Signup failed. Please try again.');
     } finally {

@@ -61,9 +61,10 @@ export const loanService = {
       loanId: `loan-${Date.now()}`,
       ...loanData,
       createdAt: new Date().toISOString().split('T')[0],
-      status: 'Active',
+      status: loanData.status || 'Pending',
       completedAt: null,
       interestPaid: 0,
+      riskMonitoring: loanData.riskMonitoring || 'Stable',
     };
     loans.push(newLoan);
     saveLoans();

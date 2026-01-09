@@ -4,22 +4,26 @@ import Layout from '../components/common/Layout';
 import ProtectedRoute from '../components/common/ProtectedRoute';
 import { loanService } from '../services/loanService';
 import { borrowRequestService } from '../services/borrowRequestService';
+import { authService } from '../services/authService';
 
 export default function ProfilePage() {
   const { user } = useAuth();
   const [borrowingHistory, setBorrowingHistory] = useState([]);
   const [lendingHistory, setLendingHistory] = useState([]);
   const [myRequests, setMyRequests] = useState([]);
+  const [securityDepositInfo, setSecurityDepositInfo] = useState(null);
 
   useEffect(() => {
     if (user?.id) {
       const borrowing = loanService.getBorrowingHistory(user.id);
       const lending = loanService.getLendingHistory(user.id);
       const requests = borrowRequestService.getUserRequests(user.id);
+      const depositInfo = authService.getSecurityDepositInfo(user.id);
       
       setBorrowingHistory(borrowing);
       setLendingHistory(lending);
       setMyRequests(requests);
+      setSecurityDepositInfo(depositInfo);
     }
   }, [user]);
 
@@ -129,7 +133,77 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Borrow History */}
+      {/* Security Deposit */}
+      {securityDepositInfo && (user?.role !== 'Lender') && (
+        <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl shadow-lg p-6 mb-8 border border-green-200">
+          <h2 className="text-xl font-semibold mb-4 flex items-center">
+            <span className="text-2xl mr-2">🔐</span>
+            Security Deposit
+          </h2>
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="bg-white rounded-lg p-4 border border-green-200">
+              <label className="text-sm font-semibold text-gray-600">Total Deposit</label>
+              <div className="text-3xl font-bold text-green-600 mt-2">
+                ${securityDepositInfo.totalDeposit?.toLocaleString()}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Initial security deposit</p>
+            </div>
+
+            <div className="bg-white rounded-lg p-4 border border-emerald-200">
+              <label className="text-sm font-semibold text-gray-600">Available Balance</label>
+              <div className="text-3xl font-bold text-emerald-600 mt-2">
+                ${securityDepositInfo.availableBalance?.toLocaleString()}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Can be deducted if you default</p>
+            </div>
+
+            <div className="bg-white rounded-lg p-4 border border-orange-200">
+              <label className="text-sm font-semibold text-gray-600">Deducted Amount</label>
+              <div className={`text-3xl font-bold mt-2 ${securityDepositInfo.deductedAmount > 0 ? 'text-orange-600' : 'text-gray-600'}`}>
+                ${securityDepositInfo.deductedAmount?.toLocaleString()}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">From defaults or penalties</p>
+            </div>
+          </div>
+
+          {/* Security Deposit History */}
+          {securityDepositInfo.history && securityDepositInfo.history.length > 0 && (
+            <div className="mt-6 pt-6 border-t border-green-200">
+              <h3 className="font-semibold text-gray-700 mb-3">Transaction History</h3>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {securityDepositInfo.history.map((transaction, idx) => (
+                  <div key={idx} className="flex items-center justify-between text-sm bg-white p-3 rounded border border-gray-100">
+                    <div className="flex items-center gap-3 flex-1">
+                      <span className="text-lg">
+                        {transaction.type === 'deposit' && '💰'}
+                        {transaction.type === 'deduction' && '⚠️'}
+                        {transaction.type === 'refund' && '✅'}
+                      </span>
+                      <div>
+                        <p className="font-semibold text-gray-700 capitalize">{transaction.type}</p>
+                        <p className="text-xs text-gray-500">{transaction.description}</p>
+                        <p className="text-xs text-gray-400">{new Date(transaction.date).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={`font-bold ${transaction.type === 'deduction' ? 'text-red-600' : 'text-green-600'}`}>
+                        {transaction.type === 'deduction' ? '-' : '+'} ${transaction.amount?.toLocaleString()}
+                      </p>
+                      <p className="text-xs text-gray-500">Balance: ${transaction.balance?.toLocaleString()}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-sm text-yellow-800">
+              <strong>⚠️ Important:</strong> Your security deposit will be deducted if you fail to repay a loan within the deadline. Keep your available balance positive to protect your borrowing reputation.
+            </p>
+          </div>
+        </div>
+      )}
       <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
         <h2 className="text-xl font-semibold mb-4">Borrow History</h2>
         {borrowingHistory.length === 0 && myRequests.filter(r => r.status === 'Funded').length === 0 ? (

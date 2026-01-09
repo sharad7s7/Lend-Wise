@@ -14,6 +14,17 @@ const mockUsers = [
     isVerified: true,
     socialTrustScore: 92,
     aiCreditScore: null,
+    securityDeposit: 1000,
+    availableSecurityDeposit: 1000,
+    securityDepositHistory: [
+      {
+        date: new Date().toISOString(),
+        type: 'deposit',
+        amount: 1000,
+        description: 'Initial security deposit',
+        balance: 1000,
+      }
+    ],
   },
   {
     id: 'user-2',
@@ -24,6 +35,9 @@ const mockUsers = [
     isVerified: true,
     socialTrustScore: null,
     aiCreditScore: null,
+    securityDeposit: 0,
+    availableSecurityDeposit: 0,
+    securityDepositHistory: [],
   },
   {
     id: 'user-3',
@@ -34,6 +48,17 @@ const mockUsers = [
     isVerified: false,
     socialTrustScore: null,
     aiCreditScore: 75,
+    securityDeposit: 1500,
+    availableSecurityDeposit: 1500,
+    securityDepositHistory: [
+      {
+        date: new Date().toISOString(),
+        type: 'deposit',
+        amount: 1500,
+        description: 'Initial security deposit',
+        balance: 1500,
+      }
+    ],
   },
   {
     id: 'admin-1',
@@ -44,6 +69,9 @@ const mockUsers = [
     isVerified: true,
     socialTrustScore: null,
     aiCreditScore: null,
+    securityDeposit: 0,
+    availableSecurityDeposit: 0,
+    securityDepositHistory: [],
   },
 ];
 
@@ -69,7 +97,7 @@ export const authService = {
   /**
    * Mock signup - creates new user
    */
-  async signup(email, password, name, role, isStudentVerified = false) {
+  async signup(email, password, name, role, isStudentVerified = false, securityDeposit = 500) {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -95,6 +123,17 @@ export const authService = {
       isVerified: role === 'Student' ? isStudentVerified : false,
       socialTrustScore: role === 'Student' ? 100 : null, // New students start with perfect trust
       aiCreditScore: role === 'Student' ? null : null, // Will be calculated on first assessment
+      securityDeposit: securityDeposit, // Security deposit amount
+      availableSecurityDeposit: securityDeposit, // Available balance (can be deducted)
+      securityDepositHistory: [
+        {
+          date: new Date().toISOString(),
+          type: 'deposit',
+          amount: securityDeposit,
+          description: 'Initial security deposit',
+          balance: securityDeposit,
+        }
+      ], // Track all security deposit transactions
     };
 
     mockUsers.push(newUser);
@@ -113,6 +152,82 @@ export const authService = {
       throw new Error('Email not found');
     }
     return { success: true };
+  },
+
+  /**
+   * Deduct from security deposit (used when loan is not repaid)
+   */
+  deductSecurityDeposit(userId, amount, reason = 'Loan default') {
+    const user = mockUsers.find(u => u.id === userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    if (user.availableSecurityDeposit < amount) {
+      throw new Error(`Insufficient security deposit. Available: $${user.availableSecurityDeposit}`);
+    }
+
+    user.availableSecurityDeposit -= amount;
+    user.securityDepositHistory.push({
+      date: new Date().toISOString(),
+      type: 'deduction',
+      amount: amount,
+      description: reason,
+      balance: user.availableSecurityDeposit,
+    });
+
+    return {
+      success: true,
+      deductedAmount: amount,
+      remainingBalance: user.availableSecurityDeposit,
+    };
+  },
+
+  /**
+   * Refund security deposit (used when loan is repaid on time)
+   */
+  refundSecurityDeposit(userId, amount, reason = 'Loan repaid on time') {
+    const user = mockUsers.find(u => u.id === userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const originalDeposit = user.securityDepositHistory[0]?.amount || user.securityDeposit;
+    if (user.availableSecurityDeposit + amount > originalDeposit) {
+      throw new Error('Cannot refund more than original deposit');
+    }
+
+    user.availableSecurityDeposit += amount;
+    user.securityDepositHistory.push({
+      date: new Date().toISOString(),
+      type: 'refund',
+      amount: amount,
+      description: reason,
+      balance: user.availableSecurityDeposit,
+    });
+
+    return {
+      success: true,
+      refundedAmount: amount,
+      remainingBalance: user.availableSecurityDeposit,
+    };
+  },
+
+  /**
+   * Get security deposit details for a user
+   */
+  getSecurityDepositInfo(userId) {
+    const user = mockUsers.find(u => u.id === userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    return {
+      totalDeposit: user.securityDeposit,
+      availableBalance: user.availableSecurityDeposit,
+      deductedAmount: user.securityDeposit - user.availableSecurityDeposit,
+      history: user.securityDepositHistory || [],
+    };
   },
 };
 

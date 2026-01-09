@@ -13,9 +13,11 @@ export default function SignupPage() {
     name: '',
     role: 'Student',
     isStudentVerified: false,
+    securityDeposit: '',
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showSecurityInfo, setShowSecurityInfo] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -23,12 +25,20 @@ export default function SignupPage() {
     setIsLoading(true);
 
     try {
+      // Validate security deposit
+      if (!formData.securityDeposit || Number(formData.securityDeposit) < 500) {
+        setError('Security deposit must be at least $500');
+        setIsLoading(false);
+        return;
+      }
+
       const user = await authService.signup(
         formData.email,
         formData.password,
         formData.name,
         formData.role,
-        formData.isStudentVerified
+        formData.isStudentVerified,
+        Number(formData.securityDeposit)
       );
       login(user);
       notificationService.add({
@@ -138,6 +148,40 @@ export default function SignupPage() {
                 </label>
               </div>
             )}
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-semibold text-gray-700">
+                  Security Deposit ($)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowSecurityInfo(!showSecurityInfo)}
+                  className="text-xs text-primary-600 hover:text-primary-700 font-semibold"
+                >
+                  {showSecurityInfo ? 'Hide Info' : 'What is this?'}
+                </button>
+              </div>
+              {showSecurityInfo && (
+                <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800">
+                  <p className="font-semibold mb-2">🔒 Security Deposit Protection</p>
+                  <p>A security deposit ensures trust in our lending community. If you fail to repay a loan within the deadline, the system can deduct from your security deposit to protect lenders.</p>
+                </div>
+              )}
+              <input
+                type="number"
+                value={formData.securityDeposit}
+                onChange={(e) => setFormData({ ...formData, securityDeposit: e.target.value })}
+                required
+                min="500"
+                step="100"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                placeholder="Minimum $500"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Minimum deposit: $500 | This protects both you and lenders
+              </p>
+            </div>
 
             <button
               type="submit"

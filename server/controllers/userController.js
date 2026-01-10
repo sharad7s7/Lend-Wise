@@ -38,6 +38,25 @@ export const registerUser = async (req, res) => {
   }
 };
 
+// @desc    Login user (Simulated)
+// @route   POST /api/users/login
+// @access  Public
+export const loginUser = async (req, res) => {
+    try {
+        const { email } = req.body;
+        
+        const user = await User.findOne({ email });
+
+        if (user) {
+            res.json(user);
+        } else {
+            res.status(401).json({ message: 'Invalid email or user not found' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 // @desc    Get user profile
 // @route   GET /api/users/:id
 // @access  Public (Simulated Auth)

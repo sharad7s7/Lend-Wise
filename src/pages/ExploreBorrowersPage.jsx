@@ -34,30 +34,32 @@ export default function ExploreBorrowersPage() {
     }));
   };
 
-  const handleInvest = (borrower) => {
+  const handleInvest = async (borrower) => {
     // Create loan investment
-    const loan = loanService.createLoan({
-      borrowerId: borrower.borrowerId,
-      borrowerName: borrower.borrowerName,
-      lenderId: user.id,
-      lenderName: user.name,
-      trustType: 'AI',
-      amount: borrower.loanAmount,
-      interestRate: borrower.interestRate,
-      riskLevel: borrower.riskLevel,
-      duration: borrower.duration,
-      source: 'AI Marketplace',
-      purpose: borrower.purpose,
-      creditScore: borrower.creditScore,
-      defaultProbability: borrower.defaultProbability,
-      aiRecommendation: borrower.aiRecommendation,
-      fraudScreeningStatus: borrower.fraudScreeningStatus,
-      incomeConsistency: borrower.incomeConsistency,
-      riskMonitoring: borrower.riskMonitoring,
-    });
+    try {
+        await loanService.fundLoan(borrower.requestId, borrower.loanAmount);
 
+        notificationService.add({
+          title: 'Investment Successful',
+          message: `You have successfully invested $${borrower.loanAmount} in ${borrower.borrowerName}'s loan`,
+          type: 'success',
+        });
+        
+        // Remove borrower from available list locally
+        setBorrowers(prev => prev.filter(b => b.requestId !== borrower.requestId));
+    } catch (err) {
+        notificationService.add({
+          title: 'Investment Failed',
+          message: err.message,
+          type: 'error',
+        });
+    }
+  };
+
+    /* 
     // Remove borrower from available list
     borrowerService.removeBorrower(borrower.borrowerId);
+    */
 
     notificationService.add({
       title: 'Investment Created',

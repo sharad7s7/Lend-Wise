@@ -3,6 +3,10 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import connectDB from './config/db.js';
 
+import userRoutes from './routes/userRoutes.js';
+import loanRoutes from './routes/loanRoutes.js';
+import investmentRoutes from './routes/investmentRoutes.js';
+
 dotenv.config();
 
 connectDB();
@@ -14,7 +18,11 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// Routes Placeholder
+// Routes
+app.use('/api/users', userRoutes);
+app.use('/api/loans', loanRoutes);
+app.use('/api/investments', investmentRoutes);
+
 app.get('/', (req, res) => {
   res.send('API is running...');
 });

@@ -558,161 +558,163 @@ export default function BorrowPage() {
             </div>
 
             <div className="overflow-y-auto flex-1">
-            <div className="p-8 bg-gradient-to-br from-gray-50 to-white border-2 border-dashed border-purple-300 m-6 rounded-lg">
-              {/* Certificate Status Badge */}
-              {certSubmissionData.isEstimated && (
-                <div className="mb-6 p-3 bg-blue-50 border-l-4 border-blue-500 rounded">
-                  <p className="text-sm text-blue-800 font-semibold">
-                    ℹ️ This is an estimated certificate based on your current
-                    request. Final certificate will be generated once your loan
-                    is funded.
+              <div className="p-8 bg-gradient-to-br from-gray-50 to-white border-2 border-dashed border-purple-300 m-6 rounded-lg">
+                {/* Certificate Status Badge */}
+                {certSubmissionData.isEstimated && (
+                  <div className="mb-6 p-3 bg-blue-50 border-l-4 border-blue-500 rounded">
+                    <p className="text-sm text-blue-800 font-semibold">
+                      ℹ️ This is an estimated certificate based on your current
+                      request. Final certificate will be generated once your
+                      loan is funded.
+                    </p>
+                  </div>
+                )}
+
+                {/* Certificate Header */}
+                <div className="text-center mb-8 pb-8 border-b-2 border-gray-300">
+                  <h3 className="text-3xl font-bold text-gray-900 mb-2">
+                    LOAN AGREEMENT CERTIFICATE
+                  </h3>
+                  <p className="text-gray-600">
+                    {certSubmissionData.isEstimated
+                      ? "Pre-Approval Estimate"
+                      : "Digital Signature Verified Document"}
                   </p>
                 </div>
-              )}
 
-              {/* Certificate Header */}
-              <div className="text-center mb-8 pb-8 border-b-2 border-gray-300">
-                <h3 className="text-3xl font-bold text-gray-900 mb-2">
-                  LOAN AGREEMENT CERTIFICATE
-                </h3>
-                <p className="text-gray-600">
-                  {certSubmissionData.isEstimated
-                    ? "Pre-Approval Estimate"
-                    : "Digital Signature Verified Document"}
-                </p>
-              </div>
-
-              {/* Certificate Details */}
-              <div className="space-y-6 mb-8">
-                <div className="grid grid-cols-2 gap-8">
-                  <div>
-                    <p className="text-sm text-gray-600 font-semibold uppercase tracking-wide">
-                      Borrower Name
-                    </p>
-                    <p className="text-lg font-bold text-gray-900 mt-1">
-                      {user?.name}
-                    </p>
+                {/* Certificate Details */}
+                <div className="space-y-6 mb-8">
+                  <div className="grid grid-cols-2 gap-8">
+                    <div>
+                      <p className="text-sm text-gray-600 font-semibold uppercase tracking-wide">
+                        Borrower Name
+                      </p>
+                      <p className="text-lg font-bold text-gray-900 mt-1">
+                        {user?.name}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600 font-semibold uppercase tracking-wide">
+                        Borrower ID
+                      </p>
+                      <p className="text-lg font-bold text-gray-900 mt-1">
+                        {user?.id}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-600 font-semibold uppercase tracking-wide">
-                      Borrower ID
-                    </p>
-                    <p className="text-lg font-bold text-gray-900 mt-1">
-                      {user?.id}
-                    </p>
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-8">
-                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="grid grid-cols-2 gap-8">
+                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <p className="text-xs text-gray-600 font-semibold uppercase tracking-wide">
+                        Principal Amount
+                      </p>
+                      <p className="text-2xl font-bold text-blue-700 mt-2">
+                        ${certSubmissionData.principal?.toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                      <p className="text-xs text-gray-600 font-semibold uppercase tracking-wide">
+                        Interest Amount
+                      </p>
+                      <p className="text-2xl font-bold text-green-700 mt-2">
+                        ${certSubmissionData.interest}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-purple-50 rounded-lg border-2 border-purple-300">
                     <p className="text-xs text-gray-600 font-semibold uppercase tracking-wide">
-                      Principal Amount
+                      Total Amount Due
                     </p>
-                    <p className="text-2xl font-bold text-blue-700 mt-2">
-                      ${certSubmissionData.principal?.toLocaleString()}
+                    <p className="text-3xl font-bold text-purple-700 mt-2">
+                      ${certSubmissionData.total}
                     </p>
                   </div>
-                  <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                    <p className="text-xs text-gray-600 font-semibold uppercase tracking-wide">
-                      Interest Amount
-                    </p>
-                    <p className="text-2xl font-bold text-green-700 mt-2">
-                      ${certSubmissionData.interest}
-                    </p>
+
+                  <div className="grid grid-cols-2 gap-8">
+                    <div>
+                      <p className="text-sm text-gray-600 font-semibold uppercase tracking-wide">
+                        Loan Duration
+                      </p>
+                      <p className="text-lg font-bold text-gray-900 mt-1">
+                        {selectedRequestForCert.duration} months
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600 font-semibold uppercase tracking-wide">
+                        Interest Rate
+                      </p>
+                      <p className="text-lg font-bold text-gray-900 mt-1">
+                        {selectedRequestForCert.interestRate || "N/A"}%
+                      </p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="p-4 bg-purple-50 rounded-lg border-2 border-purple-300">
-                  <p className="text-xs text-gray-600 font-semibold uppercase tracking-wide">
-                    Total Amount Due
-                  </p>
-                  <p className="text-3xl font-bold text-purple-700 mt-2">
-                    ${certSubmissionData.total}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-8">
-                  <div>
-                    <p className="text-sm text-gray-600 font-semibold uppercase tracking-wide">
-                      Loan Duration
-                    </p>
-                    <p className="text-lg font-bold text-gray-900 mt-1">
-                      {selectedRequestForCert.duration} months
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 font-semibold uppercase tracking-wide">
-                      Interest Rate
-                    </p>
-                    <p className="text-lg font-bold text-gray-900 mt-1">
-                      {selectedRequestForCert.interestRate || "N/A"}%
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Submission Deadline */}
-              <div
-                className={`p-4 ${
-                  certSubmissionData.isEstimated
-                    ? "bg-blue-50 border-l-4 border-blue-500"
-                    : "bg-orange-50 border-l-4 border-orange-500"
-                } rounded mb-8`}
-              >
-                <p className="text-sm text-gray-600 font-semibold uppercase">
-                  Submission Deadline
-                </p>
-                <p
-                  className={`text-xl font-bold mt-2 ${
+                {/* Submission Deadline */}
+                <div
+                  className={`p-4 ${
                     certSubmissionData.isEstimated
-                      ? "text-blue-700"
-                      : "text-orange-700"
-                  }`}
+                      ? "bg-blue-50 border-l-4 border-blue-500"
+                      : "bg-orange-50 border-l-4 border-orange-500"
+                  } rounded mb-8`}
                 >
-                  {certSubmissionData.deadline}
-                </p>
-                <p
-                  className={`text-xs mt-1 ${
-                    certSubmissionData.isEstimated
-                      ? "text-blue-600"
-                      : "text-orange-600"
-                  }`}
-                >
-                  {certSubmissionData.isEstimated
-                    ? "📋 Will be confirmed once your loan is funded"
-                    : "⚠️ Must be submitted within 30 days of loan funding"}
-                </p>
-              </div>
+                  <p className="text-sm text-gray-600 font-semibold uppercase">
+                    Submission Deadline
+                  </p>
+                  <p
+                    className={`text-xl font-bold mt-2 ${
+                      certSubmissionData.isEstimated
+                        ? "text-blue-700"
+                        : "text-orange-700"
+                    }`}
+                  >
+                    {certSubmissionData.deadline}
+                  </p>
+                  <p
+                    className={`text-xs mt-1 ${
+                      certSubmissionData.isEstimated
+                        ? "text-blue-600"
+                        : "text-orange-600"
+                    }`}
+                  >
+                    {certSubmissionData.isEstimated
+                      ? "📋 Will be confirmed once your loan is funded"
+                      : "⚠️ Must be submitted within 30 days of loan funding"}
+                  </p>
+                </div>
 
-              {/* Digital Signature Section */}
-              <div className="border-t-2 border-gray-300 pt-6">
-                <p className="text-sm text-gray-600 font-semibold uppercase tracking-wide mb-4">
-                  Digital Signature
-                </p>
-                <div className="flex items-center justify-center gap-4 p-6 bg-gradient-to-r from-blue-100 to-purple-100 rounded-lg border-2 border-purple-300">
-                  <div className="text-center flex-1">
-                    <div className="text-5xl mb-2">🔐</div>
-                    <p className="font-bold text-gray-900">Digitally Signed</p>
-                    <p className="text-xs text-gray-600 mt-1">
-                      By accepting this certificate, you agree to all terms and
-                      conditions mentioned above.
-                    </p>
+                {/* Digital Signature Section */}
+                <div className="border-t-2 border-gray-300 pt-6">
+                  <p className="text-sm text-gray-600 font-semibold uppercase tracking-wide mb-4">
+                    Digital Signature
+                  </p>
+                  <div className="flex items-center justify-center gap-4 p-6 bg-gradient-to-r from-blue-100 to-purple-100 rounded-lg border-2 border-purple-300">
+                    <div className="text-center flex-1">
+                      <div className="text-5xl mb-2">🔐</div>
+                      <p className="font-bold text-gray-900">
+                        Digitally Signed
+                      </p>
+                      <p className="text-xs text-gray-600 mt-1">
+                        By accepting this certificate, you agree to all terms
+                        and conditions mentioned above.
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Certification Footer */}
-              <div className="mt-8 pt-6 border-t-2 border-gray-300 text-center">
-                <p className="text-xs text-gray-500">
-                  This is a digital certificate. Your signature confirms
-                  acceptance of the loan terms and commitment to repay the total
-                  amount by the specified deadline.
-                </p>
-                <p className="text-xs text-gray-400 mt-2">
-                  Certificate Date: {new Date().toLocaleDateString()}
-                </p>
+                {/* Certification Footer */}
+                <div className="mt-8 pt-6 border-t-2 border-gray-300 text-center">
+                  <p className="text-xs text-gray-500">
+                    This is a digital certificate. Your signature confirms
+                    acceptance of the loan terms and commitment to repay the
+                    total amount by the specified deadline.
+                  </p>
+                  <p className="text-xs text-gray-400 mt-2">
+                    Certificate Date: {new Date().toLocaleDateString()}
+                  </p>
+                </div>
               </div>
-            </div>
             </div>
 
             <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex gap-4 rounded-b-xl flex-shrink-0">

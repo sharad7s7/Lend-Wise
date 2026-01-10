@@ -37,6 +37,27 @@ export default function LendPage() {
         });
 
     // Fund the request (updates request status)
+    try {
+        await loanService.fundLoan(request.requestId, request.amount);
+
+        notificationService.add({
+          title: 'Investment Successful',
+          message: `You have successfully invested $${request.amount} in ${request.borrowerName}'s loan`,
+          type: 'success',
+        });
+        
+        // Refresh requests locally
+        setRequests(prev => prev.filter(r => r.requestId !== request.requestId));
+        setSelectedRequest(null);
+    } catch (err) {
+        notificationService.add({
+          title: 'Investment Failed',
+          message: err.message,
+          type: 'error',
+        });
+    }
+
+    /*
     const fundedRequest = borrowRequestService.fundRequest(
       request.requestId,
       user.id,
@@ -68,6 +89,7 @@ export default function LendPage() {
       riskMonitoring: 'Stable',
       status: 'Active',
     });
+    */
 
     // Update UI - remove funded request from list
     setBorrowRequests(borrowRequests.filter(r => r.requestId !== request.requestId));

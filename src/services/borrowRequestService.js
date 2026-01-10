@@ -1,91 +1,81 @@
-/**
- * Borrow Request Service
- * Manages borrow requests created by users
- */
-
-let borrowRequests = [];
-
-// Load from localStorage
-const loadRequests = () => {
-  try {
-    const saved = localStorage.getItem('lendwise_borrow_requests');
-    if (saved) {
-      borrowRequests = JSON.parse(saved);
-    }
-  } catch (e) {
-    borrowRequests = [];
-  }
-};
-
-// Save to localStorage
-const saveRequests = () => {
-  localStorage.setItem('lendwise_borrow_requests', JSON.stringify(borrowRequests));
-};
-
-// Initialize
-loadRequests();
-
 export const borrowRequestService = {
-  /**
-   * Create a new borrow request
-   */
-  createRequest(requestData) {
-    const newRequest = {
-      requestId: `req-${Date.now()}`,
-      ...requestData,
-      status: 'Open',
-      createdAt: new Date().toISOString().split('T')[0],
-      fundedAt: null,
-      lenderId: null,
-      lenderName: null,
-      interestRate: null,
-    };
-    borrowRequests.push(newRequest);
-    saveRequests();
-    return newRequest;
+  
+  // Get all open requests (Explore)
+  async getAllRequests() {
+    try {
+        const res = await fetch('/api/loans/explore');
+        const data = await res.json();
+        return data.map(loan => ({
+            ...loan,
+            requestId: loan._id,
+            borrowerName: loan.borrower?.name || 'Unknown',
+            aiCreditScore: loan.borrower?.riskScore,
+            createdAt: loan.createdAt.split('T')[0],
+            loanAmount: loan.amount, 
+            purpose: loan.purpose,
+            interestRate: loan.interestRate,
+            riskLevel: loan.riskTier === 'A' ? 'Low' : loan.riskTier === 'B' ? 'Moderate' : 'High', 
+            duration: loan.durationMonths
+        }));
+    } catch (e) {
+        console.error(e);
+        return [];
+    }
   },
 
-  /**
-   * Get all open requests (for Lend page - excludes current user's requests)
-   */
-  getOpenRequests(excludeUserId) {
-    return borrowRequests.filter(
-      req => req.status === 'Open' && req.borrowerId !== excludeUserId
-    );
+  // Get my requests
+  async getUserRequests(userId) {
+     try {
+        const res = await fetch(`/api/loans/my-loans/${userId}`);
+        const data = await res.json();
+        return data.map(loan => ({
+            ...loan,
+            requestId: loan._id,
+            status: loan.status, 
+            loanAmount: loan.amount, // Ensure consistent naming (loanAmount vs amount)
+            amount: loan.amount,
+            interestRate: loan.interestRate,
+            duration: loan.durationMonths,
+            createdAt: loan.createdAt.split('T')[0]
+        }));
+     } catch (e) {
+         console.error(e);
+         return [];
+     }
   },
 
-  /**
-   * Get user's borrow requests
-   */
-  getUserRequests(userId) {
-    return borrowRequests.filter(req => req.borrowerId === userId);
+  // Create a new borrow request
+  async createRequest(requestData) {
+    const userStr = localStorage.getItem('lendwise_user');
+    if (!userStr) throw new Error("User not logged in");
+    const user = JSON.parse(userStr);
+
+    // Call backend to create loan
+    const res = await fetch('/api/loans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            borrowerId: user.id || user._id, 
+            amount: Number(requestData.loanAmount || requestData.amount),
+            durationMonths: Number(requestData.duration || requestData.durationMonths),
+            purpose: requestData.purpose
+        })
+    });
+
+    if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message);
+    }
+
+    return await res.json();
   },
 
-  /**
-   * Fund a borrow request (convert to loan)
-   */
-  fundRequest(requestId, lenderId, lenderName, interestRate, riskLevel, creditScore, defaultProbability) {
-    const request = borrowRequests.find(r => r.requestId === requestId);
-    if (!request) return null;
-
-    request.status = 'Funded';
-    request.fundedAt = new Date().toISOString().split('T')[0];
-    request.lenderId = lenderId;
-    request.lenderName = lenderName;
-    request.interestRate = interestRate;
-    request.riskLevel = riskLevel;
-    request.creditScore = creditScore;
-    request.defaultProbability = defaultProbability;
-
-    saveRequests();
-    return request;
-  },
-
-  /**
-   * Get request by ID
-   */
-  getRequest(requestId) {
-    return borrowRequests.find(r => r.requestId === requestId);
-  },
+  getRiskColor(tier) {
+    if (tier === 'A' || tier === 'Low') return 'text-green-600 bg-green-100';
+    if (tier === 'B' || tier === 'Moderate') return 'text-blue-600 bg-blue-100';
+    if (tier === 'C' || tier === 'Yellow') return 'text-yellow-600 bg-yellow-100';
+    if (tier === 'D' || tier === 'High') return 'text-red-600 bg-red-100';
+    return 'text-gray-600 bg-gray-100';
+  }
 };
 

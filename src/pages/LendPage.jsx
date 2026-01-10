@@ -1,27 +1,34 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../hooks/useAuth';
-import Layout from '../components/common/Layout';
-import ProtectedRoute from '../components/common/ProtectedRoute';
-import { borrowRequestService } from '../services/borrowRequestService';
-import { loanService } from '../services/loanService';
-import { assessCredit } from '../utils/aiEngine';
-import { notificationService } from '../services/notificationService';
+import { useState, useEffect } from "react";
+import { useAuth } from "../hooks/useAuth";
+import Layout from "../components/common/Layout";
+import ProtectedRoute from "../components/common/ProtectedRoute";
+import { borrowRequestService } from "../services/borrowRequestService";
+import { loanService } from "../services/loanService";
+import { assessCredit } from "../utils/aiEngine";
+import { notificationService } from "../services/notificationService";
 
 export default function LendPage() {
   const { user } = useAuth();
   const [borrowRequests, setBorrowRequests] = useState([]);
-  const [filter, setFilter] = useState('All');
+  const [filter, setFilter] = useState("All");
 
   useEffect(() => {
     if (user?.id) {
-      const requests = borrowRequestService.getOpenRequests(user.id);
-      setBorrowRequests(requests);
+      const fetchRequests = async () => {
+        try {
+          const requests = await borrowRequestService.getAllRequests();
+          setBorrowRequests(requests);
+        } catch (error) {
+          console.error(error);
+        }
+      };
+      fetchRequests();
     }
   }, [user]);
 
-  const handleFundLoan = (request) => {
+  const handleFundLoan = async (request) => {
     // Get AI assessment if not already available
-    let assessment = request.creditScore 
+    let assessment = request.creditScore
       ? {
           creditScore: request.creditScore,
           riskCategory: request.riskLevel,
@@ -30,31 +37,33 @@ export default function LendPage() {
         }
       : assessCredit({
           monthlyIncome: request.monthlyIncome || 3000,
-          employmentType: 'Salaried',
+          employmentType: "Salaried",
           loanAmount: request.amount,
           duration: request.duration,
-          repaymentBehavior: 'Average',
+          repaymentBehavior: "Average",
         });
 
     // Fund the request (updates request status)
     try {
-        await loanService.fundLoan(request.requestId, request.amount);
+      await loanService.fundLoan(request.requestId, request.amount);
 
-        notificationService.add({
-          title: 'Investment Successful',
-          message: `You have successfully invested $${request.amount} in ${request.borrowerName}'s loan`,
-          type: 'success',
-        });
-        
-        // Refresh requests locally
-        setRequests(prev => prev.filter(r => r.requestId !== request.requestId));
-        setSelectedRequest(null);
+      notificationService.add({
+        title: "Investment Successful",
+        message: `You have successfully invested $${request.amount} in ${request.borrowerName}'s loan`,
+        type: "success",
+      });
+
+      // Refresh requests locally
+      setRequests((prev) =>
+        prev.filter((r) => r.requestId !== request.requestId)
+      );
+      setSelectedRequest(null);
     } catch (err) {
-        notificationService.add({
-          title: 'Investment Failed',
-          message: err.message,
-          type: 'error',
-        });
+      notificationService.add({
+        title: "Investment Failed",
+        message: err.message,
+        type: "error",
+      });
     }
 
     /*
@@ -92,29 +101,37 @@ export default function LendPage() {
     */
 
     // Update UI - remove funded request from list
-    setBorrowRequests(borrowRequests.filter(r => r.requestId !== request.requestId));
+    setBorrowRequests(
+      borrowRequests.filter((r) => r.requestId !== request.requestId)
+    );
 
     notificationService.add({
-      title: 'Loan Funded',
-      message: `You've funded ${request.borrowerName}'s loan of $${request.amount.toLocaleString()}`,
-      type: 'success',
+      title: "Loan Funded",
+      message: `You've funded ${
+        request.borrowerName
+      }'s loan of $${request.amount.toLocaleString()}`,
+      type: "success",
     });
   };
 
-  const filteredRequests = borrowRequests.filter(req => {
-    if (filter === 'All') return true;
-    if (filter === 'Low Risk') return req.riskLevel === 'Low';
-    if (filter === 'Medium Risk') return req.riskLevel === 'Medium';
-    if (filter === 'High Risk') return req.riskLevel === 'High';
+  const filteredRequests = borrowRequests.filter((req) => {
+    if (filter === "All") return true;
+    if (filter === "Low Risk") return req.riskLevel === "Low";
+    if (filter === "Medium Risk") return req.riskLevel === "Medium";
+    if (filter === "High Risk") return req.riskLevel === "High";
     return true;
   });
 
   const getRiskColor = (risk) => {
     switch (risk) {
-      case 'Low': return 'bg-green-100 text-green-800';
-      case 'Medium': return 'bg-yellow-100 text-yellow-800';
-      case 'High': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case "Low":
+        return "bg-green-100 text-green-800";
+      case "Medium":
+        return "bg-yellow-100 text-yellow-800";
+      case "High":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
     }
   };
 
@@ -123,10 +140,14 @@ export default function LendPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-4xl font-bold text-gray-900 mb-2">Lend</h1>
-          <p className="text-gray-600">Browse and fund loan requests from borrowers</p>
+          <p className="text-gray-600">
+            Browse and fund loan requests from borrowers
+          </p>
         </div>
         <div>
-          <label className="text-sm font-semibold text-gray-700 mr-2">Filter:</label>
+          <label className="text-sm font-semibold text-gray-700 mr-2">
+            Filter:
+          </label>
           <select
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
@@ -142,18 +163,32 @@ export default function LendPage() {
 
       {filteredRequests.length === 0 ? (
         <div className="bg-white rounded-xl shadow-lg p-12 text-center">
-          <svg className="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          <svg
+            className="w-16 h-16 mx-auto mb-4 text-gray-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            />
           </svg>
-          <p className="text-lg text-gray-600 mb-2">No borrow requests available</p>
-          <p className="text-sm text-gray-500">Check back later for new opportunities</p>
+          <p className="text-lg text-gray-600 mb-2">
+            No borrow requests available
+          </p>
+          <p className="text-sm text-gray-500">
+            Check back later for new opportunities
+          </p>
         </div>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredRequests.map((request) => {
-            const aiExplanation = request.creditScore 
+            const aiExplanation = request.creditScore
               ? `Credit score: ${request.creditScore}/100. ${request.riskLevel} risk profile.`
-              : 'AI assessment pending. Income verification recommended.';
+              : "AI assessment pending. Income verification recommended.";
 
             return (
               <div
@@ -163,10 +198,14 @@ export default function LendPage() {
                 <div className="mb-4">
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-lg font-semibold text-gray-900">
-                      {request.borrowerName || 'Anonymous Borrower'}
+                      {request.borrowerName || "Anonymous Borrower"}
                     </h3>
                     {request.riskLevel && (
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getRiskColor(request.riskLevel)}`}>
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-semibold ${getRiskColor(
+                          request.riskLevel
+                        )}`}
+                      >
                         {request.riskLevel}
                       </span>
                     )}
@@ -181,7 +220,9 @@ export default function LendPage() {
 
                 {request.suggestedInterestRate && (
                   <div className="mb-4 p-3 bg-purple-50 rounded-lg">
-                    <div className="text-sm text-gray-600 mb-1">Suggested Interest Rate</div>
+                    <div className="text-sm text-gray-600 mb-1">
+                      Suggested Interest Rate
+                    </div>
                     <div className="text-xl font-bold text-purple-600">
                       {request.suggestedInterestRate}%
                     </div>
@@ -190,7 +231,9 @@ export default function LendPage() {
 
                 {request.creditScore && (
                   <div className="mb-4">
-                    <div className="text-sm text-gray-600 mb-1">AI Credit Score</div>
+                    <div className="text-sm text-gray-600 mb-1">
+                      AI Credit Score
+                    </div>
                     <div className="text-lg font-semibold">
                       {request.creditScore}/100
                     </div>
@@ -221,4 +264,3 @@ export default function LendPage() {
     </ProtectedRoute>
   );
 }
-

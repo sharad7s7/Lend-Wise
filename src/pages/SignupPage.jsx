@@ -1,54 +1,59 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { authService } from '../services/authService';
-import { useApp } from '../context/AppContext';
-import { notificationService } from '../services/notificationService';
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { authService } from "../services/authService";
+import { useApp } from "../context/AppContext";
+import { notificationService } from "../services/notificationService";
 
 export default function SignupPage() {
   const navigate = useNavigate();
   const { login } = useApp();
   const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    name: '',
-    role: 'Student',
+    email: "",
+    password: "",
+    name: "",
+    role: "Student",
     isStudentVerified: false,
-    securityDeposit: '',
+    securityDeposit: "",
   });
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showSecurityInfo, setShowSecurityInfo] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setIsLoading(true);
 
     try {
       // Validate security deposit
       if (!formData.securityDeposit || Number(formData.securityDeposit) < 500) {
-        setError('Security deposit must be at least $500');
+        setError("Security deposit must be at least $500");
         setIsLoading(false);
         return;
       }
 
-      const user = await authService.signup(
-        formData.email,
-        formData.password,
-        formData.name,
-        formData.role,
-        formData.isStudentVerified,
-        Number(formData.securityDeposit)
-      );
+      // Map frontend role to backend role
+      const backendRole = formData.role === "Lender" ? "lender" : "borrower";
+
+      const user = await authService.register({
+        email: formData.email,
+        password: formData.password,
+        fullName: formData.name,
+        role: backendRole,
+      });
       login(user);
       notificationService.add({
-        title: 'Welcome to LendWise!',
-        message: `Account created successfully. ${formData.role === 'Student' ? 'You can now access Friend Circle lending.' : 'You can access AI Marketplace lending.'}`,
-        type: 'success',
+        title: "Welcome to LendWise!",
+        message: `Account created successfully. ${
+          formData.role === "Student"
+            ? "You can now access Friend Circle lending."
+            : "You can access AI Marketplace lending."
+        }`,
+        type: "success",
       });
-      navigate('/home');
+      navigate("/home");
     } catch (err) {
-      setError(err.message || 'Signup failed. Please try again.');
+      setError(err.message || "Signup failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -77,7 +82,9 @@ export default function SignupPage() {
               <input
                 type="text"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
                 required
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="John Doe"
@@ -91,12 +98,14 @@ export default function SignupPage() {
               <input
                 type="email"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, email: e.target.value })
+                }
                 required
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="your@email.com"
               />
-              {formData.role === 'Student' && (
+              {formData.role === "Student" && (
                 <p className="text-xs text-gray-500 mt-1">
                   Use your .edu email address for student verification
                 </p>
@@ -110,7 +119,9 @@ export default function SignupPage() {
               <input
                 type="password"
                 value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, password: e.target.value })
+                }
                 required
                 minLength={6}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
@@ -124,7 +135,13 @@ export default function SignupPage() {
               </label>
               <select
                 value={formData.role}
-                onChange={(e) => setFormData({ ...formData, role: e.target.value, isStudentVerified: false })}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    role: e.target.value,
+                    isStudentVerified: false,
+                  })
+                }
                 required
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               >
@@ -134,17 +151,26 @@ export default function SignupPage() {
               </select>
             </div>
 
-            {formData.role === 'Student' && (
+            {formData.role === "Student" && (
               <div className="flex items-start">
                 <input
                   type="checkbox"
                   id="studentVerified"
                   checked={formData.isStudentVerified}
-                  onChange={(e) => setFormData({ ...formData, isStudentVerified: e.target.checked })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      isStudentVerified: e.target.checked,
+                    })
+                  }
                   className="mt-1 mr-2"
                 />
-                <label htmlFor="studentVerified" className="text-sm text-gray-700">
-                  I verify that I am a student and using a valid .edu email address
+                <label
+                  htmlFor="studentVerified"
+                  className="text-sm text-gray-700"
+                >
+                  I verify that I am a student and using a valid .edu email
+                  address
                 </label>
               </div>
             )}
@@ -159,19 +185,27 @@ export default function SignupPage() {
                   onClick={() => setShowSecurityInfo(!showSecurityInfo)}
                   className="text-xs text-primary-600 hover:text-primary-700 font-semibold"
                 >
-                  {showSecurityInfo ? 'Hide Info' : 'What is this?'}
+                  {showSecurityInfo ? "Hide Info" : "What is this?"}
                 </button>
               </div>
               {showSecurityInfo && (
                 <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800">
-                  <p className="font-semibold mb-2">🔒 Security Deposit Protection</p>
-                  <p>A security deposit ensures trust in our lending community. If you fail to repay a loan within the deadline, the system can deduct from your security deposit to protect lenders.</p>
+                  <p className="font-semibold mb-2">
+                    🔒 Security Deposit Protection
+                  </p>
+                  <p>
+                    A security deposit ensures trust in our lending community.
+                    If you fail to repay a loan within the deadline, the system
+                    can deduct from your security deposit to protect lenders.
+                  </p>
                 </div>
               )}
               <input
                 type="number"
                 value={formData.securityDeposit}
-                onChange={(e) => setFormData({ ...formData, securityDeposit: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, securityDeposit: e.target.value })
+                }
                 required
                 min="500"
                 step="100"
@@ -188,14 +222,17 @@ export default function SignupPage() {
               disabled={isLoading}
               className="w-full bg-primary-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {isLoading ? 'Creating account...' : 'Create Account'}
+              {isLoading ? "Creating account..." : "Create Account"}
             </button>
           </form>
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
-              Already have an account?{' '}
-              <Link to="/login" className="text-primary-600 hover:text-primary-700 font-semibold">
+              Already have an account?{" "}
+              <Link
+                to="/login"
+                className="text-primary-600 hover:text-primary-700 font-semibold"
+              >
                 Sign in
               </Link>
             </p>
@@ -205,4 +242,3 @@ export default function SignupPage() {
     </div>
   );
 }
-

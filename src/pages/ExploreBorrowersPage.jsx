@@ -47,6 +47,8 @@ export default function ExploreBorrowersPage() {
         
         // Remove borrower from available list locally
         setBorrowers(prev => prev.filter(b => b.requestId !== borrower.requestId));
+        
+        navigate('/marketplace/investments');
     } catch (err) {
         notificationService.add({
           title: 'Investment Failed',
@@ -54,20 +56,6 @@ export default function ExploreBorrowersPage() {
           type: 'error',
         });
     }
-  };
-
-    /* 
-    // Remove borrower from available list
-    borrowerService.removeBorrower(borrower.borrowerId);
-    */
-
-    notificationService.add({
-      title: 'Investment Created',
-      message: `You've invested $${borrower.loanAmount.toLocaleString()} in ${borrower.borrowerName}'s loan`,
-      type: 'success',
-    });
-
-    navigate('/marketplace/investments');
   };
 
   const getRiskColor = (risk) => {

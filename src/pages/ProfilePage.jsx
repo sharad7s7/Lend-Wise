@@ -14,17 +14,38 @@ export default function ProfilePage() {
   const [securityDepositInfo, setSecurityDepositInfo] = useState(null);
 
   useEffect(() => {
-    if (user?.id) {
-      const borrowing = loanService.getBorrowingHistory(user.id);
-      const lending = loanService.getLendingHistory(user.id);
-      const requests = borrowRequestService.getUserRequests(user.id);
-      const depositInfo = authService.getSecurityDepositInfo(user.id);
-      
-      setBorrowingHistory(borrowing);
-      setLendingHistory(lending);
-      setMyRequests(requests);
-      setSecurityDepositInfo(depositInfo);
-    }
+    const loadData = async () => {
+      if (user?.id) {
+        try {
+          const [borrowing, lending, requests] = await Promise.all([
+            loanService.getBorrowingHistory(user.id).catch(() => []),
+            loanService.getLendingHistory(user.id).catch(() => []),
+            borrowRequestService.getUserRequests(user.id).catch(() => [])
+          ]);
+          
+          setBorrowingHistory(borrowing || []);
+          setLendingHistory(lending || []);
+          setMyRequests(requests || []);
+          
+          // Get security deposit info from user object if available
+          if (user.securityDeposit !== undefined) {
+            setSecurityDepositInfo({
+              totalDeposit: user.securityDeposit || 0,
+              availableBalance: user.availableSecurityDeposit || user.securityDeposit || 0,
+              deductedAmount: (user.securityDeposit || 0) - (user.availableSecurityDeposit || user.securityDeposit || 0),
+              history: user.securityDepositHistory || []
+            });
+          }
+        } catch (error) {
+          console.error('Error loading profile data:', error);
+          setBorrowingHistory([]);
+          setLendingHistory([]);
+          setMyRequests([]);
+        }
+      }
+    };
+    
+    loadData();
   }, [user]);
 
   const getRoleBadgeColor = (role) => {
@@ -223,23 +244,23 @@ export default function ProfilePage() {
               </thead>
               <tbody>
                 {borrowingHistory.map((loan) => (
-                  <tr key={loan.loanId} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4">{loan.loanId}</td>
-                    <td className="py-3 px-4 font-semibold">${loan.amount.toLocaleString()}</td>
+                  <tr key={loan.id || loan._id || loan.loanId} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="py-3 px-4">{loan.id || loan._id || loan.loanId || 'N/A'}</td>
+                    <td className="py-3 px-4 font-semibold">${(loan.amount || 0).toLocaleString()}</td>
                     <td className="py-3 px-4">{loan.source || (loan.trustType === 'AI' ? 'AI Marketplace' : 'Friend Circle')}</td>
                     <td className="py-3 px-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(loan.status)}`}>
-                        {loan.status}
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(loan.status || 'Pending')}`}>
+                        {loan.status || 'Pending'}
                       </span>
                     </td>
-                    <td className="py-3 px-4">{loan.interestRate > 0 ? `${loan.interestRate}%` : '0%'}</td>
-                    <td className="py-3 px-4">{loan.createdAt}</td>
+                    <td className="py-3 px-4">{(loan.interestRate || 0) > 0 ? `${loan.interestRate}%` : '0%'}</td>
+                    <td className="py-3 px-4">{loan.createdAt || 'N/A'}</td>
                   </tr>
                 ))}
                 {myRequests.filter(r => r.status === 'Funded').map((request) => (
-                  <tr key={request.requestId} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4">{request.requestId}</td>
-                    <td className="py-3 px-4 font-semibold">${request.amount.toLocaleString()}</td>
+                  <tr key={request.requestId || request.id || request._id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="py-3 px-4">{request.requestId || request.id || request._id || 'N/A'}</td>
+                    <td className="py-3 px-4 font-semibold">${(request.amount || 0).toLocaleString()}</td>
                     <td className="py-3 px-4">AI Marketplace</td>
                     <td className="py-3 px-4">
                       <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor('Active')}`}>
@@ -247,7 +268,7 @@ export default function ProfilePage() {
                       </span>
                     </td>
                     <td className="py-3 px-4">{request.interestRate ? `${request.interestRate}%` : 'N/A'}</td>
-                    <td className="py-3 px-4">{request.createdAt}</td>
+                    <td className="py-3 px-4">{request.createdAt || 'N/A'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -278,12 +299,12 @@ export default function ProfilePage() {
                 {lendingHistory.map((loan) => {
                   const expectedReturn = loan.status === 'Completed' 
                     ? loan.interestPaid || 0
-                    : Math.round((loan.amount * (loan.interestRate || 0) / 100 * (loan.duration || 12)) / 12);
+                    : Math.round(((loan.amount || 0) * (loan.interestRate || 0) / 100 * (loan.duration || 12)) / 12);
                   
                   return (
-                    <tr key={loan.loanId} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-3 px-4">{loan.loanId}</td>
-                      <td className="py-3 px-4 font-semibold">${loan.amount.toLocaleString()}</td>
+                    <tr key={loan.id || loan._id || loan.loanId} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="py-3 px-4">{loan.id || loan._id || loan.loanId || 'N/A'}</td>
+                      <td className="py-3 px-4 font-semibold">${(loan.amount || 0).toLocaleString()}</td>
                       <td className="py-3 px-4">{loan.borrowerName || 'Anonymous'}</td>
                       <td className="py-3 px-4">
                         <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
@@ -296,8 +317,8 @@ export default function ProfilePage() {
                       </td>
                       <td className="py-3 px-4">${expectedReturn.toLocaleString()}</td>
                       <td className="py-3 px-4">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(loan.status)}`}>
-                          {loan.status}
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(loan.status || 'Pending')}`}>
+                          {loan.status || 'Pending'}
                         </span>
                       </td>
                     </tr>

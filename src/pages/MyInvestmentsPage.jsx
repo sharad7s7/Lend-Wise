@@ -13,12 +13,38 @@ export default function MyInvestmentsPage() {
   const [filter, setFilter] = useState('All');
 
   useEffect(() => {
-    if (user?.id) {
-      const lendingHistory = loanService.getLendingHistory(user.id);
-      const stats = loanService.getLoanStats(user.id);
-      setInvestments(lendingHistory);
-      setStats(stats);
-    }
+    const loadData = async () => {
+      if (user?.id) {
+        try {
+          const lendingHistory = await loanService.getLendingHistory(user.id);
+          setInvestments(lendingHistory || []);
+          
+          // Calculate stats from lending history
+          const activeLending = (lendingHistory || []).filter(l => l.status === 'Active').length;
+          const completedLoans = (lendingHistory || []).filter(l => l.status === 'Completed').length;
+          const totalLent = (lendingHistory || []).reduce((sum, l) => sum + (l.amount || 0), 0);
+          const totalReturnsEarned = (lendingHistory || []).reduce((sum, l) => sum + (l.interestPaid || 0), 0);
+          
+          setStats({
+            activeLending,
+            completedLoans,
+            totalLent,
+            totalReturnsEarned
+          });
+        } catch (error) {
+          console.error('Error loading investments:', error);
+          setInvestments([]);
+          setStats({
+            activeLending: 0,
+            completedLoans: 0,
+            totalLent: 0,
+            totalReturnsEarned: 0
+          });
+        }
+      }
+    };
+    
+    loadData();
   }, [user]);
 
   const filteredInvestments = investments.filter(inv => {

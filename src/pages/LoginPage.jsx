@@ -18,10 +18,13 @@ export default function LoginPage() {
 
     try {
       const user = await authService.login(formData.email, formData.password);
+      if (!user || !user.id) {
+        throw new Error('Invalid user data received from server');
+      }
       login(user);
       notificationService.add({
         title: 'Welcome back!',
-        message: `Successfully logged in as ${user.name}`,
+        message: `Successfully logged in as ${user.name || user.email || 'User'}`,
         type: 'success',
       });
       navigate('/home');

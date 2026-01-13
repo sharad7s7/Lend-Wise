@@ -13,29 +13,22 @@ export default function LendPage() {
   const [filter, setFilter] = useState('All');
 
   useEffect(() => {
-    if (user?.id) {
-      const requests = borrowRequestService.getOpenRequests(user.id);
-      setBorrowRequests(requests);
-    }
+    const loadRequests = async () => {
+      if (user?.id) {
+        try {
+          const requests = await borrowRequestService.getAllRequests();
+          setBorrowRequests(requests || []);
+        } catch (error) {
+          console.error('Error loading requests:', error);
+          setBorrowRequests([]);
+        }
+      }
+    };
+    
+    loadRequests();
   }, [user]);
 
-  const handleFundLoan = (request) => {
-    // Get AI assessment if not already available
-    let assessment = request.creditScore 
-      ? {
-          creditScore: request.creditScore,
-          riskCategory: request.riskLevel,
-          interestRate: request.suggestedInterestRate,
-          defaultProbability: request.defaultProbability,
-        }
-      : assessCredit({
-          monthlyIncome: request.monthlyIncome || 3000,
-          employmentType: 'Salaried',
-          loanAmount: request.amount,
-          duration: request.duration,
-          repaymentBehavior: 'Average',
-        });
-
+  const handleFundLoan = async (request) => {
     // Fund the request (updates request status)
     try {
         await loanService.fundLoan(request.requestId, request.amount);
@@ -46,9 +39,8 @@ export default function LendPage() {
           type: 'success',
         });
         
-        // Refresh requests locally
-        setRequests(prev => prev.filter(r => r.requestId !== request.requestId));
-        setSelectedRequest(null);
+        // Update UI - remove funded request from list
+        setBorrowRequests(prev => prev.filter(r => r.requestId !== request.requestId));
     } catch (err) {
         notificationService.add({
           title: 'Investment Failed',
@@ -56,49 +48,6 @@ export default function LendPage() {
           type: 'error',
         });
     }
-
-    /*
-    const fundedRequest = borrowRequestService.fundRequest(
-      request.requestId,
-      user.id,
-      user.name,
-      assessment.interestRate || 10,
-      assessment.riskCategory || 'Medium',
-      assessment.creditScore || 70,
-      assessment.defaultProbability || 20
-    );
-
-    // Create loan from funded request (appears in both borrower and lender history)
-    const loan = loanService.createLoan({
-      borrowerId: request.borrowerId,
-      borrowerName: request.borrowerName,
-      lenderId: user.id,
-      lenderName: user.name,
-      trustType: 'AI',
-      amount: request.amount,
-      interestRate: assessment.interestRate || 10,
-      riskLevel: assessment.riskCategory || 'Medium',
-      duration: request.duration,
-      source: 'AI Marketplace',
-      purpose: request.purpose,
-      creditScore: assessment.creditScore || 70,
-      defaultProbability: assessment.defaultProbability || 20,
-      aiRecommendation: (assessment.creditScore || 70) >= 70 ? 'Approve' : 'Conditional',
-      fraudScreeningStatus: 'Cleared',
-      incomeConsistency: request.monthlyIncome ? 'Verified' : 'Pending',
-      riskMonitoring: 'Stable',
-      status: 'Active',
-    });
-    */
-
-    // Update UI - remove funded request from list
-    setBorrowRequests(borrowRequests.filter(r => r.requestId !== request.requestId));
-
-    notificationService.add({
-      title: 'Loan Funded',
-      message: `You've funded ${request.borrowerName}'s loan of $${request.amount.toLocaleString()}`,
-      type: 'success',
-    });
   };
 
   const filteredRequests = borrowRequests.filter(req => {

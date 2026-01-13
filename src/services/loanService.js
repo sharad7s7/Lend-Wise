@@ -2,26 +2,42 @@ export const loanService = {
   
   // Get loans for a user (as borrower)
   async getBorrowingHistory(userId) {
-    const res = await fetch(`/api/loans/my-loans/${userId}`);
-    const data = await res.json();
-    return data.map(loan => ({
-        ...loan,
-        id: loan._id // Map _id to id for frontend
-    }));
+    try {
+      const res = await fetch(`/api/loans/my-loans/${userId}`);
+      if (!res.ok) {
+        return [];
+      }
+      const data = await res.json();
+      return Array.isArray(data) ? data.map(loan => ({
+          ...loan,
+          id: loan._id // Map _id to id for frontend
+      })) : [];
+    } catch (error) {
+      console.error('Error fetching borrowing history:', error);
+      return [];
+    }
   },
 
   // Get investments for a user (as lender)
   async getLendingHistory(userId) {
-      const res = await fetch(`/api/investments/my-portfolio/${userId}`);
-      const data = await res.json();
-      return data.map(investment => ({
-          ...investment,
-          id: investment._id,
-          date: investment.createdAt,
-          projectName: investment.loanRequest?.purpose || 'Loan Investment',
-          borrowerName: investment.loanRequest?.borrower?.name || 'Unknown',
-          amount: investment.amountInvested
-      }));
+      try {
+        const res = await fetch(`/api/investments/my-portfolio/${userId}`);
+        if (!res.ok) {
+          return [];
+        }
+        const data = await res.json();
+        return Array.isArray(data) ? data.map(investment => ({
+            ...investment,
+            id: investment._id,
+            date: investment.createdAt,
+            projectName: investment.loanRequest?.purpose || 'Loan Investment',
+            borrowerName: investment.loanRequest?.borrower?.name || 'Unknown',
+            amount: investment.amountInvested
+        })) : [];
+      } catch (error) {
+        console.error('Error fetching lending history:', error);
+        return [];
+      }
   },
 
   // Fund a loan

@@ -9,7 +9,10 @@ import investmentRoutes from './routes/investmentRoutes.js';
 
 dotenv.config();
 
-connectDB();
+// Connect to DB (non-blocking - server will start even if DB fails)
+connectDB().catch(err => {
+  console.warn('Database connection failed, but server will continue...');
+});
 
 const app = express();
 const PORT = process.env.PORT || 5000;

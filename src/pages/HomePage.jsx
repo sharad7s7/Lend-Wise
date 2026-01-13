@@ -14,19 +14,46 @@ export default function HomePage() {
   const [activeLends, setActiveLends] = useState(0);
 
   useEffect(() => {
-    if (user?.id) {
-      const loanStats = loanService.getLoanStats(user.id);
-      const borrowingHistory = loanService.getBorrowingHistory(user.id);
-      const lendingHistory = loanService.getLendingHistory(user.id);
-      const myRequests = borrowRequestService.getUserRequests(user.id);
-      
-      setStats(loanStats);
-      setActiveBorrows(
-        borrowingHistory.filter(l => l.status === 'Active').length +
-        myRequests.filter(r => r.status === 'Open').length
-      );
-      setActiveLends(lendingHistory.filter(l => l.status === 'Active').length);
-    }
+    const loadData = async () => {
+      if (user?.id) {
+        try {
+          const [borrowingHistory, lendingHistory, myRequests] = await Promise.all([
+            loanService.getBorrowingHistory(user.id).catch(() => []),
+            loanService.getLendingHistory(user.id).catch(() => []),
+            borrowRequestService.getUserRequests(user.id).catch(() => [])
+          ]);
+          
+          // Calculate stats
+          const activeBorrowing = borrowingHistory.filter(l => l.status === 'Active').length;
+          const activeLending = lendingHistory.filter(l => l.status === 'Active').length;
+          const completedLoans = [...borrowingHistory, ...lendingHistory].filter(l => l.status === 'Completed' || l.status === 'Repaid').length;
+          
+          setStats({
+            activeBorrowing,
+            activeLending,
+            completedLoans
+          });
+          
+          setActiveBorrows(
+            activeBorrowing +
+            myRequests.filter(r => r.status === 'Open').length
+          );
+          setActiveLends(activeLending);
+        } catch (error) {
+          console.error('Error loading home page data:', error);
+          // Set defaults on error
+          setStats({
+            activeBorrowing: 0,
+            activeLending: 0,
+            completedLoans: 0
+          });
+          setActiveBorrows(0);
+          setActiveLends(0);
+        }
+      }
+    };
+    
+    loadData();
   }, [user]);
 
   const getRoleBadgeColor = (role) => {

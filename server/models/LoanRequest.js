@@ -35,6 +35,25 @@ const loanRequestSchema = new mongoose.Schema({
   fundedAmount: {
     type: Number,
     default: 0,
+  },
+  certificateSubmitted: {
+    type: Boolean,
+    default: false,
+  },
+  certificateSubmissionDate: {
+    type: Date,
+    default: null,
+  },
+  certificateDeadline: {
+    type: Date,
+    default: null,
+  },
+  certificateData: {
+    principal: { type: Number, default: 0 },
+    interest: { type: Number, default: 0 },
+    total: { type: Number, default: 0 },
+    signedBy: { type: String, default: null },
+    signedAt: { type: Date, default: null },
   }
 }, {
   timestamps: true,

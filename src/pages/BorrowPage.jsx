@@ -25,10 +25,19 @@ export default function BorrowPage() {
   const [certificateSubmitted, setCertificateSubmitted] = useState(false);
 
   useEffect(() => {
-    if (user?.id) {
-      const requests = borrowRequestService.getUserRequests(user.id);
-      setMyRequests(requests);
-    }
+    const loadRequests = async () => {
+      if (user?.id) {
+        try {
+          const requests = await borrowRequestService.getUserRequests(user.id);
+          setMyRequests(requests || []);
+        } catch (error) {
+          console.error('Error loading requests:', error);
+          setMyRequests([]);
+        }
+      }
+    };
+    
+    loadRequests();
   }, [user]);
 
   const handleSubmit = async (e) => {
@@ -60,26 +69,43 @@ export default function BorrowPage() {
         });
       }
 
-      const request = borrowRequestService.createRequest({
-        borrowerId: user.id,
-        borrowerName: user.name,
+      const requestData = {
+        loanAmount: Number(formData.loanAmount),
         amount: Number(formData.loanAmount),
         purpose: formData.purpose,
         duration: Number(formData.duration),
+        durationMonths: Number(formData.duration),
+      };
+
+      const request = await borrowRequestService.createRequest(requestData);
+      
+      // Format the response to match expected structure
+      const formattedRequest = {
+        ...request,
+        requestId: request._id || request.id,
+        borrowerId: user.id,
+        borrowerName: user.name,
+        amount: request.amount || Number(formData.loanAmount),
+        loanAmount: request.amount || Number(formData.loanAmount),
+        purpose: request.purpose || formData.purpose,
+        duration: request.durationMonths || Number(formData.duration),
         monthlyIncome: formData.monthlyIncome ? Number(formData.monthlyIncome) : null,
         repaymentPreference: formData.repaymentPreference,
-        creditScore: assessment?.creditScore || null,
-        riskLevel: assessment?.riskCategory || null,
-        suggestedInterestRate: assessment?.interestRate || null,
+        creditScore: assessment?.creditScore || request.creditScore || null,
+        riskLevel: assessment?.riskCategory || request.riskTier || null,
+        interestRate: assessment?.interestRate || request.interestRate || null,
+        suggestedInterestRate: assessment?.interestRate || request.interestRate || null,
         defaultProbability: assessment?.defaultProbability || null,
+        status: request.status || 'Pending',
         certificateSubmitted: false,
         certificateSubmissionDeadline: null,
-      });
+        createdAt: request.createdAt ? (typeof request.createdAt === 'string' ? request.createdAt.split('T')[0] : new Date(request.createdAt).toISOString().split('T')[0]) : new Date().toISOString().split('T')[0],
+      };
 
-      setMyRequests([...myRequests, request]);
+      setMyRequests([...myRequests, formattedRequest]);
       
       // Show certificate immediately after request creation
-      setSelectedRequestForCert(request);
+      setSelectedRequestForCert(formattedRequest);
       const estimatedInterestRate = assessment?.interestRate || 8; // Default 8% if no assessment
       const estimatedInterest = calculateInterest(
         Number(formData.loanAmount),
@@ -107,13 +133,14 @@ export default function BorrowPage() {
 
       notificationService.add({
         title: 'Borrow Request Created',
-        message: `Your request for $${formData.loanAmount.toLocaleString()} has been posted`,
+        message: `Your request for $${Number(formData.loanAmount).toLocaleString()} has been posted`,
         type: 'success',
       });
     } catch (error) {
+      console.error('Error creating borrow request:', error);
       notificationService.add({
         title: 'Error',
-        message: 'Failed to create borrow request',
+        message: error.message || 'Failed to create borrow request. Please try again.',
         type: 'error',
       });
     } finally {
@@ -138,48 +165,120 @@ export default function BorrowPage() {
   // Handle certificate view
   const handleViewCertificate = (request) => {
     setSelectedRequestForCert(request);
-    const interest = request.interestRate 
-      ? calculateInterest(request.amount, request.interestRate, request.duration)
+    
+    // Calculate interest based on actual loan data
+    const principal = request.amount || request.loanAmount || 0;
+    const interestRate = request.interestRate || 0;
+    const duration = request.duration || request.durationMonths || 12;
+    const interest = interestRate > 0 
+      ? calculateInterest(principal, interestRate, duration)
       : 0;
+    
+    // Use certificate data if already submitted, otherwise calculate
+    const certData = request.certificateData || {};
+    const isFunded = request.status === 'Funded' || request.status === 'Active';
+    
     setCertSubmissionData({
-      principal: request.amount,
-      interest: interest.toFixed(2),
-      total: (request.amount + interest).toFixed(2),
-      deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      principal: certData.principal || principal,
+      interest: certData.interest || interest.toFixed(2),
+      total: certData.total || (principal + interest).toFixed(2),
+      deadline: request.certificateDeadline 
+        ? (typeof request.certificateDeadline === 'string' 
+          ? request.certificateDeadline.split('T')[0] 
+          : new Date(request.certificateDeadline).toISOString().split('T')[0])
+        : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      isEstimated: !isFunded,
+      alreadySubmitted: request.certificateSubmitted || false,
     });
     setShowCertificate(true);
+    setCertificateSubmitted(request.certificateSubmitted || false);
   };
 
   // Handle certificate submission
-  const handleCertificateSubmit = () => {
+  const handleCertificateSubmit = async () => {
     if (!selectedRequestForCert) return;
     
-    // Update the request with certificate submission
-    const updatedRequests = myRequests.map(req => {
-      if (req.requestId === selectedRequestForCert.requestId) {
-        return {
-          ...req,
-          certificateSubmitted: true,
-          certificateSubmissionDeadline: certSubmissionData.deadline,
-          submissionDate: new Date().toISOString().split('T')[0],
-        };
+    // Only allow submission for funded/active loans
+    if (selectedRequestForCert.status !== 'Funded' && selectedRequestForCert.status !== 'Active') {
+      notificationService.add({
+        title: 'Cannot Submit Certificate',
+        message: 'Certificate can only be submitted for funded loans',
+        type: 'error',
+      });
+      return;
+    }
+
+    // Prevent double submission
+    if (selectedRequestForCert.certificateSubmitted) {
+      notificationService.add({
+        title: 'Already Submitted',
+        message: 'Certificate has already been submitted for this loan',
+        type: 'warning',
+      });
+      return;
+    }
+
+    try {
+      const loanId = selectedRequestForCert.requestId || selectedRequestForCert.id || selectedRequestForCert._id;
+      
+      if (!loanId) {
+        throw new Error('Loan ID not found');
       }
-      return req;
-    });
-    
-    setMyRequests(updatedRequests);
-    setCertificateSubmitted(true);
-    
-    notificationService.add({
-      title: 'Certificate Submitted',
-      message: `Digital signature certificate submitted successfully. Deadline: ${certSubmissionData.deadline}`,
-      type: 'success',
-    });
-    
-    setTimeout(() => {
-      setShowCertificate(false);
-      setCertificateSubmitted(false);
-    }, 2000);
+
+      const result = await borrowRequestService.submitCertificate(loanId, {
+        principal: Number(certSubmissionData.principal),
+        interest: Number(certSubmissionData.interest),
+        total: Number(certSubmissionData.total),
+        signedBy: user?.name || 'Borrower',
+      });
+
+      // Update the request with certificate submission
+      const updatedRequests = myRequests.map(req => {
+        const reqId = req.requestId || req.id || req._id;
+        if (reqId === loanId) {
+          return {
+            ...req,
+            certificateSubmitted: true,
+            certificateSubmissionDate: result.certificateSubmissionDate,
+            certificateDeadline: result.certificateDeadline,
+            certificateData: result.certificateData,
+            status: result.status || req.status,
+          };
+        }
+        return req;
+      });
+      
+      setMyRequests(updatedRequests);
+      setCertificateSubmitted(true);
+      
+      // Update selected request
+      setSelectedRequestForCert({
+        ...selectedRequestForCert,
+        certificateSubmitted: true,
+        certificateSubmissionDate: result.certificateSubmissionDate,
+        certificateDeadline: result.certificateDeadline,
+        certificateData: result.certificateData,
+        status: result.status || selectedRequestForCert.status,
+      });
+      
+      notificationService.add({
+        title: 'Certificate Submitted Successfully',
+        message: `Digital signature certificate submitted. Deadline: ${certSubmissionData.deadline}`,
+        type: 'success',
+      });
+      
+      setTimeout(() => {
+        setShowCertificate(false);
+        setCertificateSubmitted(false);
+      }, 2000);
+    } catch (error) {
+      console.error('Error submitting certificate:', error);
+      notificationService.add({
+        title: 'Submission Failed',
+        message: error.message || 'Failed to submit certificate. Please try again.',
+        type: 'error',
+      });
+    }
   };
 
   const content = (
@@ -350,7 +449,12 @@ export default function BorrowPage() {
                     </div>
                     {request.certificateSubmitted && (
                       <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-green-700 text-xs">
-                        ✓ Certificate Submitted on {request.submissionDate}
+                        ✓ Certificate Submitted on{' '}
+                        {request.certificateSubmissionDate 
+                          ? (typeof request.certificateSubmissionDate === 'string' 
+                            ? new Date(request.certificateSubmissionDate).toLocaleDateString()
+                            : request.certificateSubmissionDate.toLocaleDateString())
+                          : request.submissionDate || 'N/A'}
                       </div>
                     )}
                   </div>
@@ -360,6 +464,14 @@ export default function BorrowPage() {
                       className="mt-4 w-full bg-blue-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-blue-700 text-sm"
                     >
                       View & Sign Certificate
+                    </button>
+                  )}
+                  {request.status === 'Funded' && request.certificateSubmitted && (
+                    <button
+                      onClick={() => handleViewCertificate(request)}
+                      className="mt-4 w-full bg-gray-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-gray-700 text-sm"
+                    >
+                      View Certificate
                     </button>
                   )}
                 </div>
@@ -445,16 +557,17 @@ export default function BorrowPage() {
 
       {/* Digital Certificate Modal */}
       {showCertificate && selectedRequestForCert && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full">
-            <div className={`bg-gradient-to-r ${certSubmissionData.isEstimated ? 'from-blue-600 to-cyan-600' : 'from-purple-600 to-indigo-600'} px-6 py-4 text-white rounded-t-xl`}>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col my-4">
+            <div className={`bg-gradient-to-r ${certSubmissionData.isEstimated ? 'from-blue-600 to-cyan-600' : 'from-purple-600 to-indigo-600'} px-6 py-4 text-white rounded-t-xl flex-shrink-0`}>
               <h2 className="text-2xl font-bold">Digital Signature Certificate</h2>
               <p className={`${certSubmissionData.isEstimated ? 'text-blue-100' : 'text-purple-100'} text-sm mt-1`}>
                 {certSubmissionData.isEstimated ? 'Estimated Loan Agreement (Pre-Approval)' : 'Loan Agreement Document'}
               </p>
             </div>
             
-            <div className="p-8 bg-gradient-to-br from-gray-50 to-white border-2 border-dashed border-purple-300 m-6 rounded-lg">
+            <div className="flex-1 overflow-y-auto">
+              <div className="p-6 bg-gradient-to-br from-gray-50 to-white border-2 border-dashed border-purple-300 m-4 rounded-lg">
               {/* Certificate Status Badge */}
               {certSubmissionData.isEstimated && (
                 <div className="mb-6 p-3 bg-blue-50 border-l-4 border-blue-500 rounded">
@@ -463,56 +576,68 @@ export default function BorrowPage() {
               )}
               
               {/* Certificate Header */}
-              <div className="text-center mb-8 pb-8 border-b-2 border-gray-300">
-                <h3 className="text-3xl font-bold text-gray-900 mb-2">LOAN AGREEMENT CERTIFICATE</h3>
-                <p className="text-gray-600">{certSubmissionData.isEstimated ? 'Pre-Approval Estimate' : 'Digital Signature Verified Document'}</p>
+              <div className="text-center mb-6 pb-6 border-b-2 border-gray-300">
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">LOAN AGREEMENT CERTIFICATE</h3>
+                <p className="text-gray-600 text-sm">{certSubmissionData.isEstimated ? 'Pre-Approval Estimate' : 'Digital Signature Verified Document'}</p>
               </div>
               
               {/* Certificate Details */}
-              <div className="space-y-6 mb-8">
-                <div className="grid grid-cols-2 gap-8">
+              <div className="space-y-4 mb-6">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-gray-600 font-semibold uppercase tracking-wide">Borrower Name</p>
-                    <p className="text-lg font-bold text-gray-900 mt-1">{user?.name}</p>
+                    <p className="text-xs text-gray-600 font-semibold uppercase tracking-wide">Borrower Name</p>
+                    <p className="text-base font-bold text-gray-900 mt-1">{user?.name}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600 font-semibold uppercase tracking-wide">Borrower ID</p>
-                    <p className="text-lg font-bold text-gray-900 mt-1">{user?.id}</p>
+                    <p className="text-xs text-gray-600 font-semibold uppercase tracking-wide">Borrower ID</p>
+                    <p className="text-base font-bold text-gray-900 mt-1 break-all text-sm">{user?.id}</p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-8">
-                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
                     <p className="text-xs text-gray-600 font-semibold uppercase tracking-wide">Principal Amount</p>
-                    <p className="text-2xl font-bold text-blue-700 mt-2">${certSubmissionData.principal?.toLocaleString()}</p>
+                    <p className="text-xl font-bold text-blue-700 mt-1">
+                      ${typeof certSubmissionData.principal === 'number' 
+                        ? certSubmissionData.principal.toLocaleString() 
+                        : Number(certSubmissionData.principal || 0).toLocaleString()}
+                    </p>
                   </div>
-                  <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                  <div className="p-3 bg-green-50 rounded-lg border border-green-200">
                     <p className="text-xs text-gray-600 font-semibold uppercase tracking-wide">Interest Amount</p>
-                    <p className="text-2xl font-bold text-green-700 mt-2">${certSubmissionData.interest}</p>
+                    <p className="text-xl font-bold text-green-700 mt-1">
+                      ${typeof certSubmissionData.interest === 'number' 
+                        ? certSubmissionData.interest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        : Number(certSubmissionData.interest || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
                   </div>
                 </div>
 
-                <div className="p-4 bg-purple-50 rounded-lg border-2 border-purple-300">
+                <div className="p-3 bg-purple-50 rounded-lg border-2 border-purple-300">
                   <p className="text-xs text-gray-600 font-semibold uppercase tracking-wide">Total Amount Due</p>
-                  <p className="text-3xl font-bold text-purple-700 mt-2">${certSubmissionData.total}</p>
+                  <p className="text-2xl font-bold text-purple-700 mt-1">
+                    ${typeof certSubmissionData.total === 'number' 
+                      ? certSubmissionData.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                      : Number(certSubmissionData.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-8">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-gray-600 font-semibold uppercase tracking-wide">Loan Duration</p>
-                    <p className="text-lg font-bold text-gray-900 mt-1">{selectedRequestForCert.duration} months</p>
+                    <p className="text-xs text-gray-600 font-semibold uppercase tracking-wide">Loan Duration</p>
+                    <p className="text-base font-bold text-gray-900 mt-1">{selectedRequestForCert.duration || selectedRequestForCert.durationMonths} months</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600 font-semibold uppercase tracking-wide">Interest Rate</p>
-                    <p className="text-lg font-bold text-gray-900 mt-1">{selectedRequestForCert.interestRate || 'N/A'}%</p>
+                    <p className="text-xs text-gray-600 font-semibold uppercase tracking-wide">Interest Rate</p>
+                    <p className="text-base font-bold text-gray-900 mt-1">{selectedRequestForCert.interestRate || 'N/A'}%</p>
                   </div>
                 </div>
               </div>
 
               {/* Submission Deadline */}
-              <div className={`p-4 ${certSubmissionData.isEstimated ? 'bg-blue-50 border-l-4 border-blue-500' : 'bg-orange-50 border-l-4 border-orange-500'} rounded mb-8`}>
-                <p className="text-sm text-gray-600 font-semibold uppercase">Submission Deadline</p>
-                <p className={`text-xl font-bold mt-2 ${certSubmissionData.isEstimated ? 'text-blue-700' : 'text-orange-700'}`}>{certSubmissionData.deadline}</p>
+              <div className={`p-3 ${certSubmissionData.isEstimated ? 'bg-blue-50 border-l-4 border-blue-500' : 'bg-orange-50 border-l-4 border-orange-500'} rounded mb-4`}>
+                <p className="text-xs text-gray-600 font-semibold uppercase">Submission Deadline</p>
+                <p className={`text-lg font-bold mt-1 ${certSubmissionData.isEstimated ? 'text-blue-700' : 'text-orange-700'}`}>{certSubmissionData.deadline}</p>
                 <p className={`text-xs mt-1 ${certSubmissionData.isEstimated ? 'text-blue-600' : 'text-orange-600'}`}>
                   {certSubmissionData.isEstimated 
                     ? '📋 Will be confirmed once your loan is funded' 
@@ -521,39 +646,57 @@ export default function BorrowPage() {
               </div>
 
               {/* Digital Signature Section */}
-              <div className="border-t-2 border-gray-300 pt-6">
-                <p className="text-sm text-gray-600 font-semibold uppercase tracking-wide mb-4">Digital Signature</p>
-                <div className="flex items-center justify-center gap-4 p-6 bg-gradient-to-r from-blue-100 to-purple-100 rounded-lg border-2 border-purple-300">
+              <div className="border-t-2 border-gray-300 pt-4">
+                <p className="text-xs text-gray-600 font-semibold uppercase tracking-wide mb-3">Digital Signature</p>
+                <div className="flex items-center justify-center gap-4 p-4 bg-gradient-to-r from-blue-100 to-purple-100 rounded-lg border-2 border-purple-300">
                   <div className="text-center flex-1">
-                    <div className="text-5xl mb-2">🔐</div>
-                    <p className="font-bold text-gray-900">Digitally Signed</p>
-                    <p className="text-xs text-gray-600 mt-1">By accepting this certificate, you agree to all terms and conditions mentioned above.</p>
+                    <div className="text-4xl mb-2">🔐</div>
+                    <p className="font-bold text-gray-900 text-sm">
+                      {certSubmissionData.alreadySubmitted ? 'Digitally Signed' : 'Ready to Sign'}
+                    </p>
+                    {certSubmissionData.alreadySubmitted && selectedRequestForCert?.certificateData?.signedAt && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Signed by: {selectedRequestForCert.certificateData.signedBy || user?.name || 'Borrower'} on{' '}
+                        {new Date(selectedRequestForCert.certificateData.signedAt).toLocaleDateString()}
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-600 mt-1">
+                      {certSubmissionData.alreadySubmitted 
+                        ? 'This certificate has been digitally signed and submitted.'
+                        : 'By accepting this certificate, you agree to all terms and conditions mentioned above.'}
+                    </p>
                   </div>
                 </div>
               </div>
 
               {/* Certification Footer */}
-              <div className="mt-8 pt-6 border-t-2 border-gray-300 text-center">
+              <div className="mt-4 pt-4 border-t-2 border-gray-300 text-center">
                 <p className="text-xs text-gray-500">This is a digital certificate. Your signature confirms acceptance of the loan terms and commitment to repay the total amount by the specified deadline.</p>
-                <p className="text-xs text-gray-400 mt-2">Certificate Date: {new Date().toLocaleDateString()}</p>
+                <p className="text-xs text-gray-400 mt-1">Certificate Date: {new Date().toLocaleDateString()}</p>
+              </div>
               </div>
             </div>
 
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex gap-4 rounded-b-xl">
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex gap-4 rounded-b-xl flex-shrink-0">
               <button
                 onClick={() => setShowCertificate(false)}
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-semibold hover:bg-gray-100"
               >
                 {certSubmissionData.isEstimated ? 'Close' : 'Cancel'}
               </button>
-              {!certSubmissionData.isEstimated && (
+              {!certSubmissionData.isEstimated && !certSubmissionData.alreadySubmitted && (
                 <button
                   onClick={handleCertificateSubmit}
                   disabled={certificateSubmitted}
                   className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {certificateSubmitted ? '✓ Submitted' : 'Submit Certificate'}
+                  {certificateSubmitted ? '✓ Submitting...' : '✓ Sign Certificate'}
                 </button>
+              )}
+              {certSubmissionData.alreadySubmitted && (
+                <div className="flex-1 px-4 py-2 bg-green-100 text-green-800 rounded-lg font-semibold text-center">
+                  ✓ Certificate Already Submitted
+                </div>
               )}
               {certSubmissionData.isEstimated && (
                 <button

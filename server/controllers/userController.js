@@ -1,11 +1,21 @@
 import User from '../models/User.js';
 import { calculateRiskScore } from '../utils/aiEngine.js';
+import mongoose from 'mongoose';
+
+// Helper to check if DB is connected
+const isDBConnected = () => {
+  return mongoose.connection.readyState === 1;
+};
 
 // @desc    Register a new user
 // @route   POST /api/users
 // @access  Public
 export const registerUser = async (req, res) => {
   try {
+    if (!isDBConnected()) {
+      return res.status(503).json({ message: 'Database not connected. Please check server configuration.' });
+    }
+
     const { name, email, simulatedAuthId, role } = req.body;
 
     const userExists = await User.findOne({ email });
@@ -43,15 +53,58 @@ export const registerUser = async (req, res) => {
 // @access  Public
 export const loginUser = async (req, res) => {
     try {
+        if (!isDBConnected()) {
+            return res.status(503).json({ message: 'Database not connected. Please check server configuration.' });
+        }
+
         const { email } = req.body;
         
-        const user = await User.findOne({ email });
+        let user = await User.findOne({ email });
 
-        if (user) {
-            res.json(user);
-        } else {
-            res.status(401).json({ message: 'Invalid email or user not found' });
+        // Auto-create demo users if they don't exist (for demo convenience)
+        if (!user) {
+            const demoUsers = {
+                'student@university.edu': { name: 'Alex Johnson', role: 'Student' },
+                'lender@example.com': { name: 'Sarah Lender', role: 'Lender' },
+                'user@example.com': { name: 'John Smith', role: 'Non-student' }
+            };
+
+            if (demoUsers[email]) {
+                try {
+                    // Helper for base64 encoding (Node.js compatible)
+                    const btoa = (str) => Buffer.from(str, 'binary').toString('base64');
+                    user = await User.create({
+                        name: demoUsers[email].name,
+                        email: email,
+                        simulatedAuthId: btoa(email),
+                        role: demoUsers[email].role
+                    });
+                    console.log(`Auto-created demo user: ${email}`);
+                } catch (createError) {
+                    // If creation fails, try to find again (might have been created by another request)
+                    user = await User.findOne({ email });
+                    if (!user) {
+                        return res.status(401).json({ message: 'Invalid email or user not found' });
+                    }
+                }
+            } else {
+                return res.status(401).json({ message: 'Invalid email or user not found. Please sign up first.' });
+            }
         }
+
+        // Return user with all necessary fields
+        res.json({
+            _id: user._id,
+            id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            simulatedAuthId: user.simulatedAuthId,
+            riskScore: user.riskScore || 0,
+            financialProfile: user.financialProfile || {},
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt
+        });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

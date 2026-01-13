@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
+import ErrorBoundary from './components/common/ErrorBoundary';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
@@ -18,8 +19,9 @@ import ProtectedRoute from './components/common/ProtectedRoute';
 
 function App() {
   return (
-    <AppProvider>
-      <Router>
+    <ErrorBoundary>
+      <AppProvider>
+        <Router>
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
@@ -115,6 +117,7 @@ function App() {
         </Routes>
       </Router>
     </AppProvider>
+    </ErrorBoundary>
   );
 }
 
